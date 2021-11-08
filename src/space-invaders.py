@@ -1,3 +1,5 @@
+# PROJET PPI INFO2056 ULIEGE
+
 import pygame
 import random
 
