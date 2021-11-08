@@ -1,5 +1,4 @@
 altgraph==0.17.2
-apt-xapian-index==0.49
 autopep8==1.5.5
 blinker==1.4
 certifi==2020.6.20
