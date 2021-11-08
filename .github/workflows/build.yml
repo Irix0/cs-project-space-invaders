@@ -61,8 +61,6 @@ jobs:
         python -m pip install --upgrade pip
         cd src/
         pip install -r requirements.txt
-      with:
-        path: src
     - name: Build with pyinstaller for ${{matrix.TARGET}}
       run: ${{matrix.CMD_BUILD}}
     - name: Load Release URL File from release job
