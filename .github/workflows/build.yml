@@ -42,7 +42,7 @@ jobs:
             CMD_BUILD: >
                 pyinstaller --clean -F -w -n space-invaders space-invaders.py &&
                 cd dist/ &&
-                zip -r9 space-invaders space-invaders.app/
+                zip -r9 space-invaders_macos space-invaders.app/
             OUT_FILE_NAME: space-invaders_macos.zip
             ASSET_MIME: application/zip
           - os: windows-latest
