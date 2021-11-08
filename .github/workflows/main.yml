@@ -35,6 +35,8 @@ jobs:
       # Runs a set of commands using the runners shell
       - name: PyInstaller Linux
         uses: JackMcKew/pyinstaller-action-linux@0.1.4
+        with:
+          path: src
         
       - name : Info
         run : echo Built for python !
