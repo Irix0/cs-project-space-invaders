@@ -1,35 +1,44 @@
 import pygame
+import random
 
 #### COULEURS
 NOIR = (0, 0, 0)
 BLANC = (255, 255, 255)
+GRIS_CLAIR = (211, 211, 211)
+ROUGE = (255, 0, 0)
+VERT = 35,204,1,255
 
-FENETRE_LARGEUR = 960
-FENETRE_HAUTEUR = 600
+SANTE_DEPART = 100
 
-CANON_LARGEUR = 64
-CANON_HAUTEUR = 64
+FENETRE_LARGEUR = 960  # px
+FENETRE_HAUTEUR = 600  # px
+
+CANON_LARGEUR = 64  # px
+CANON_HAUTEUR = 64  # px
 CANON_Y = FENETRE_HAUTEUR * 0.85
-CANON_DEPLACEMENT = 5
+CANON_DEPLACEMENT = 5  # px
 
-ALIEN_LARGEUR = 64
-ALIEN_HAUTEUR = 64
-VITESSE_ALIEN = 40
-INTERVAL_DEPLACEMENT_ALIEN = 300  # ms
+ALIEN_LARGEUR = 64  # px
+ALIEN_HAUTEUR = 64  # px
+VITESSE_ALIEN = 30  # px/s
+INTERVALLE_DEPLACEMENT_ALIEN = 300  # ms
 NBR_ALIENS_HORIZONTAL = 6
-NBR_ALIENS_VERTICAL = 3
+NBR_ALIENS_VERTICAL = 0
 DISTANCE_ALIEN_HORIZONTAL = ALIEN_LARGEUR * 2
 DISTANCE_ALIEN_VERTICAL = ALIEN_HAUTEUR
 
-HAUTEUR_BALLE = 8
-LARGEUR_BALLE = 3
+HAUTEUR_BALLE = 8  # px
+LARGEUR_BALLE = 3  # px
 VITESSE_BALLE = -80  # VITESSE VERTICALE
-INTERVAL_TIR = 1000  # ms | interval entre chaque tir
+INTERVALLE_TIR_JOUEUR = 1000  # ms | interval entre chaque tir
+INTERVALLE_TIR_ALIEN = 600  # ms
 
 
 #### Fonctions
 ## Entités
-def nouvelleEntite(type, position=None, rect=None, vitesse=[0, 0]):
+def nouvelleEntite(type, position=None, rect=None, vitesse=None, couleur=BLANC):
+    if vitesse is None:
+        vitesse = [0, 0]
     if position is None:
         position = [0, 0]
     return {
@@ -42,12 +51,13 @@ def nouvelleEntite(type, position=None, rect=None, vitesse=[0, 0]):
         'colonneAlien': 0,
         'derniereDirection': 'DROITE',
         'image': None,
-        'dernierTir': -INTERVAL_TIR,  # permet de tirer dès la première seconde
+        'dernierTir': -INTERVALLE_TIR_JOUEUR,  # permet de tirer dès la première seconde
         'poses': {},  # dictionnaire de nom:image
         'animationActuelle': None,
         'animations': {},
         'momentDeplacement': pygame.time.get_ticks(),
         'rect': rect,
+        'couleur': couleur
     }
 
 
@@ -83,28 +93,51 @@ def dessine(entite, ecran):
 
 
 def rectangle(entite):
-    return entite['image'].get_rect().move(entite['position'][0], entite['position'][1])
+    if entite['image'] != None:
+        return entite['image'].get_rect().move(entite['position'][0], entite['position'][1])
 
 
-def nouveauTir(scene, entite, decalle):
-    if maintenant - entite['dernierTir'] > INTERVAL_TIR:
+def nouveauTirJoueur(scene, entite, decalle):
+    if maintenant - entite['dernierTir'] > INTERVALLE_TIR_JOUEUR:
         tir = nouvelleEntite('tir', [entite['position'][0] + decalle, entite['position'][1]],
                              rect=pygame.Rect(entite['position'], (LARGEUR_BALLE, HAUTEUR_BALLE)),
-                             vitesse=[0, VITESSE_BALLE])
+                             vitesse=[0, VITESSE_BALLE], couleur=BLANC)
         ajouteEntite(scene, tir)
         entite['dernierTir'] = maintenant
 
 
-def detecte_touche(tirs, aliens):
+def nouveauTirAlien(scene, position):
+    tir = nouvelleEntite('tir', [position[0] + ALIEN_LARGEUR // 2, position[1] + ALIEN_HAUTEUR // 2],
+                         rect=pygame.Rect(position, (LARGEUR_BALLE, HAUTEUR_BALLE)), vitesse=[0, -VITESSE_BALLE], couleur=VERT)
+    ajouteEntite(scene, tir)
+
+
+def detecte_touche_aliens(tirs_joueur, aliens):
     global chrono
-    for tir in acteurs(tirs):
+    global score
+    for tir in acteurs(tirs_joueur):
         for alien in acteurs(aliens):
-            if rectangle(alien).colliderect(tir['rect']) == 1:
-                chrono += 1
-                if chrono == 20:
-                    enleveEntite(aliens, alien)
-                    enleveEntite(tirs, tir)
-                    chrono = 0
+            if rectangle(alien) != None:
+                if rectangle(alien).colliderect(tir['rect']) == 1:
+                    chrono += 1
+                    if chrono == 20:
+                        enleveEntite(aliens, alien)
+                        enleveEntite(tirs_joueur, tir)
+                        chrono = 0
+                        score += 100
+
+def detecte_touche_canon(tirs_aliens, canon):
+    global chrono
+    global score
+    global sante
+    for tir in acteurs(tirs_alien):
+        if rectangle(canon).colliderect(tir['rect']) == 1:
+            chrono += 1
+            if chrono == 20:
+                enleveEntite(tirs_alien, tir)
+                score -= 50
+                chrono = 0
+                sante -=5
 
 
 def deplace(entite):
@@ -133,12 +166,6 @@ def ajouteEntite(scene, entite):
     scene['acteurs'].append(entite)
 
 
-def enleveEntite(scene, entite):
-    acteurs = scene['acteurs']
-    if entite in acteurs:
-        acteurs.remove(entite)
-
-
 def acteurs(scene):
     return list(scene['acteurs'])
 
@@ -148,7 +175,7 @@ def miseAJour(scene):
     for entite in ma_scene:
         deplace(entite)
         if entite['type'] == 'tir':
-            pygame.draw.rect(fenetre, BLANC, entite['rect'])
+            pygame.draw.rect(fenetre, entite['couleur'], entite['rect'])
 
 
 def enScene(scene):
@@ -261,6 +288,7 @@ def anime(animation):
         else:
             commenceMouvement(animation, animation['indexMouvement'] + 1)
 
+
 def change_direction_entites(entites, direction, vitesse):
     for entite in acteurs(entites):
         if direction == 'BAS':
@@ -270,11 +298,13 @@ def change_direction_entites(entites, direction, vitesse):
         elif direction == 'DROITE':
             entite['vitesse'] = [vitesse, 0]
 
+
 def gestion_direction_aliens(aliens):
+    global game_over
     for alien in acteurs(aliens):
         if int(alien['position'][0]) > FENETRE_LARGEUR - ALIEN_LARGEUR - 32:
             change_direction_entites(aliens, 'BAS', VITESSE_ALIEN)
-        if int(alien['position'][0]) < 32:
+        if int(alien['position'][0]) < 31:
             change_direction_entites(aliens, 'BAS', VITESSE_ALIEN)
 
         if int(alien['position'][1]) > (alien['rangeeAlien'] + 1) * DISTANCE_ALIEN_VERTICAL:
@@ -287,6 +317,17 @@ def gestion_direction_aliens(aliens):
             alien['rangeeAlien'] += 1
             alien['position'][1] = alien['rangeeAlien'] * DISTANCE_ALIEN_VERTICAL
 
+        if int(alien['position'][1]) > (FENETRE_HAUTEUR // 10) * 8 - ALIEN_HAUTEUR:
+            game_over = True
+
+
+def tir_aleatoire_aliens(aliens):
+    global dernier_tir_alien
+    if dernier_tir_alien < maintenant - INTERVALLE_TIR_ALIEN:
+        if acteurs(aliens):
+            alien_aleatoire = random.choice(acteurs(aliens))
+            nouveauTirAlien(tirs_alien, alien_aleatoire['position'])
+            dernier_tir_alien = maintenant
 
 
 def affiche(entites, ecran):
@@ -306,38 +347,191 @@ def affiche(entites, ecran):
             dessine(objet, ecran)
 
 
+def affiche_marquoir(score):
+    marquoir = space_font.render("SCORE : {}".format(score), True, BLANC)
+    fenetre.blit(marquoir, (FENETRE_LARGEUR // 15, FENETRE_HAUTEUR - space_font.size("SCORE : {}".format(score))[1]))
+    
+def affiche_sante(sante):
+    left = (FENETRE_LARGEUR//15)*12
+    top = FENETRE_HAUTEUR - space_font.size("SCORE : {}".format(score))[1]
+    width, height = (FENETRE_LARGEUR//15)*2, 20
+
+    barre = pygame.Rect(left, top, width, height)
+    pygame.draw.rect(fenetre, GRIS_CLAIR, barre)
+    barre_sante = pygame.Rect(left, top, width * (sante/SANTE_DEPART), height)
+    pygame.draw.rect(fenetre, ROUGE, barre_sante)
+
+
 ## Entrees
 def traite_entrees():
     global fini
+    global en_jeu
+    global en_pause
+    global tir_auto
+    global game_over
+    global NBR_ALIENS_VERTICAL
     for evenement in pygame.event.get():
         if evenement.type == pygame.QUIT:
             fini = True
         if evenement.type == pygame.KEYDOWN:
-            if evenement.key == pygame.K_LEFT:
-                deplacer_canon(-CANON_DEPLACEMENT)
-            elif evenement.key == pygame.K_RIGHT:
-                deplacer_canon(CANON_DEPLACEMENT)
-            elif evenement.key == pygame.K_SPACE:
-                nouveauTir(tirs, canon, CANON_LARGEUR // 2)
+            if en_jeu:
+                if evenement.key == pygame.K_LEFT:
+                    deplacer_canon(-CANON_DEPLACEMENT)
+                elif evenement.key == pygame.K_RIGHT:
+                    deplacer_canon(CANON_DEPLACEMENT)
+                elif evenement.key == pygame.K_SPACE and en_jeu:
+                    nouveauTirJoueur(tirs_joueur, canon, CANON_LARGEUR // 2)
+                elif evenement.key == pygame.K_ESCAPE:
+                    en_pause = True
+                elif evenement.key == pygame.K_a:
+                    if tir_auto:
+                        tir_auto = False
+                    else:
+                        tir_auto = True
+            else:
+                en_jeu = True
+            if game_over:
+                game_over = False
+                en_jeu = False
+                NBR_ALIENS_VERTICAL = 0
+                for alien in acteurs(aliens):
+                    enleveEntite(aliens, alien)
+
+def init_vague():
+    for x in range(NBR_ALIENS_VERTICAL):
+        for i in range(NBR_ALIENS_HORIZONTAL):
+            alien = nouvelleEntite('alien', [32 + i * DISTANCE_ALIEN_HORIZONTAL, x * DISTANCE_ALIEN_VERTICAL])
+            alien['vitesse'][0] = VITESSE_ALIEN
+            alien['rangeeAlien'] = x
+            alien['colonneAlien'] = i
+
+            ajoutePose(alien, 'ALIEN_DOWN', alien_down_image)
+            ajoutePose(alien, 'ALIEN_UP', alien_up_image)
+            ajouteAnimation(alien, 'deplacement', animation)
+            commenceAnimation(alien, 'deplacement', 0)
+            ajouteEntite(aliens, alien)
+
+def jeu():
+    pygame.key.set_repeat(100, 25)
+    global tir_auto
+    global NBR_ALIENS_VERTICAL
+    if not acteurs(aliens):
+        NBR_ALIENS_VERTICAL += 1
+        init_vague()
+    fenetre.fill(NOIR)
+    pygame.draw.rect(fenetre, BLANC, border_left)
+    pygame.draw.rect(fenetre, BLANC, border_right)
+    pygame.draw.rect(fenetre, ROUGE, barre_limite)
+
+    affiche_marquoir(score)
+    affiche_sante(sante)
+    anime(animation)
+    dessine(canon, fenetre)
+    if tir_auto:
+        nouveauTirJoueur(tirs_joueur, canon, CANON_LARGEUR // 2)
+    if acteurs(aliens):
+        miseAJour(tirs_joueur)
+        miseAJour(tirs_alien)
+        gestion_direction_aliens(aliens)
+        miseAJour(aliens)
+        tir_aleatoire_aliens(aliens)
+        detecte_touche_aliens(tirs_joueur, aliens)
+        detecte_touche_canon(tirs_alien, canon)
+        enScene(tirs_joueur)
+        enScene(tirs_alien)
+        affiche(acteurs(aliens), fenetre)
+
+
+    temps.tick(60)
+
+def pause():
+    pygame.key.set_repeat()
+    titre_pause = space_font_grand.render("PAUSE", True, BLANC)
+    sous_titre_pause = space_font.render("Appuyez sur n'importe quelle touche pour continuer.", True, GRIS_CLAIR)
+    position_titre_pause = (FENETRE_LARGEUR//2 - space_font_grand.size("PAUSE")[0]//2, FENETRE_HAUTEUR//2 - space_font_grand.size("PAUSE")[1])
+    position_sous_titre_pause = (FENETRE_LARGEUR//2 - space_font.size("Appuyez sur n'importe quelle touche pour continuer.")[0]//2, position_titre_pause[1] + 100)
+    fenetre.blit(titre_pause, position_titre_pause)
+    fenetre.blit(sous_titre_pause, position_sous_titre_pause)
+    temps.tick(5)
+
+def game_over_screen():
+    pygame.key.set_repeat()
+    titre_game_over = space_font_grand.render("GAME OVER", True, BLANC)
+    position_titre_game_over = (FENETRE_LARGEUR//2 - space_font_grand.size("GAME OVER")[0]//2, FENETRE_HAUTEUR//2 - space_font_grand.size("GAME OVER")[1])
+    fenetre.blit(titre_game_over, position_titre_game_over)
+    temps.tick(5)
+
+def decor_menu(position_titre_principal):
+    decor = nouvelleScene()
+    #ALIEN GAUCHE
+    position_alien1 = [position_titre_principal[0] - 100, position_titre_principal[1] - 5]
+    alien1 = nouvelleEntite('alien', position=position_alien1)
+    ajoutePose(alien1, 'ALIEN_DOWN', alien_down_image)
+    ajoutePose(alien1, 'ALIEN_UP', alien_up_image)
+    ajouteAnimation(alien1, 'deplacement', animation)
+    commenceAnimation(alien1, 'deplacement', 0)
+    ajouteEntite(decor, alien1)
+    #ALIEN DROIT
+    position_alien2 = [position_titre_principal[0] + space_font_grand.size("SPACE INVADERS")[0]+25, position_titre_principal[1] - 5]
+    alien2 = nouvelleEntite('alien', position=position_alien2)
+    ajoutePose(alien2, 'ALIEN_DOWN', alien_down_image)
+    ajoutePose(alien2, 'ALIEN_UP', alien_up_image)
+    ajouteAnimation(alien2, 'deplacement', animation)
+    commenceAnimation(alien2, 'deplacement', 0)
+    ajouteEntite(decor, alien2)
+
+    anime(animation)
+    miseAJour(decor)
+    affiche(acteurs(decor), fenetre)
+
+def menu():
+    pygame.key.set_repeat()
+    fenetre.fill(NOIR)
+    ##TITRES
+    titre_principal = space_font_grand.render("SPACE INVADERS", True, BLANC)
+    titre_start = space_font.render("Appuyez sur n'importe quelle touche pour commencer.", True, GRIS_CLAIR)
+    position_titre_principal = (FENETRE_LARGEUR//2 - space_font_grand.size("SPACE INVADERS")[0]//2, 150)
+    position_titre_start = (FENETRE_LARGEUR // 2 - space_font.size("Appuyez sur n'importe quelle touche pour continuer.")[0]// 2, 250)
+    fenetre.blit(titre_principal, position_titre_principal)
+    fenetre.blit(titre_start, position_titre_start)
+
+    #ANIMATION ALIEN
+    decor_menu(position_titre_principal)
+    temps.tick(5)
 
 
 pygame.init()
-pygame.key.set_repeat(10, 10)
+random.seed()
 
 chrono = 0
+score = 0
+sante = SANTE_DEPART
+dernier_tir_alien = 0
+game_over = False
+en_jeu = False
+en_pause = False
+fin_vague = True
+tir_auto = False
 
 fenetre_taille = (FENETRE_LARGEUR, FENETRE_HAUTEUR)
 fenetre = pygame.display.set_mode(fenetre_taille)
 pygame.display.set_caption('SPACE INVADERS')
 
+pygame.font.init()
+space_font = pygame.font.Font('fonts/space_invaders.ttf', 18)
+space_font_grand = pygame.font.Font('fonts/space_invaders.ttf', 48)
+
 canon_image = pygame.image.load('images/laser_canon.webp').convert_alpha(fenetre)
 canon_image = pygame.transform.scale(canon_image, (CANON_LARGEUR, CANON_HAUTEUR))
 canon = nouvelleEntite('canon', [(FENETRE_LARGEUR - CANON_LARGEUR) // 2, CANON_Y])
 canon['image'] = canon_image
-tirs = nouvelleScene()
-border_left = pygame.Rect(0,0, 32, FENETRE_HAUTEUR)
-border_right = pygame.Rect(FENETRE_LARGEUR - 32, 0, 32, FENETRE_HAUTEUR)
 
+tirs_joueur = nouvelleScene()
+tirs_alien = nouvelleScene()
+
+border_left = pygame.Rect(0, 0, 32, FENETRE_HAUTEUR)
+border_right = pygame.Rect(FENETRE_LARGEUR - 32, 0, 32, FENETRE_HAUTEUR)
+barre_limite = pygame.Rect(0, (FENETRE_HAUTEUR // 10) * 8, FENETRE_LARGEUR, 5)
 
 aliens = nouvelleScene()
 
@@ -347,21 +541,10 @@ alien_down_image = pygame.image.load('images/alien-down.png').convert_alpha(fene
 alien_down_image = pygame.transform.scale(alien_down_image, (ALIEN_LARGEUR, ALIEN_HAUTEUR))
 
 animation = nouvelleAnimation()
-ajouteMouvement(animation, mouvement('ALIEN_UP', INTERVAL_DEPLACEMENT_ALIEN))
-ajouteMouvement(animation, mouvement('ALIEN_DOWN', INTERVAL_DEPLACEMENT_ALIEN))
+ajouteMouvement(animation, mouvement('ALIEN_UP', INTERVALLE_DEPLACEMENT_ALIEN))
+ajouteMouvement(animation, mouvement('ALIEN_DOWN', INTERVALLE_DEPLACEMENT_ALIEN))
 
-for x in range(NBR_ALIENS_VERTICAL):
-    for i in range(NBR_ALIENS_HORIZONTAL):
-        alien = nouvelleEntite('alien', [32 + i * DISTANCE_ALIEN_HORIZONTAL, x * DISTANCE_ALIEN_VERTICAL])
-        alien['vitesse'][0] = VITESSE_ALIEN
-        alien['rangeeAlien'] = x
-        alien['colonneAlien'] = i
 
-        ajoutePose(alien, 'ALIEN_DOWN', alien_down_image)
-        ajoutePose(alien, 'ALIEN_UP', alien_up_image)
-        ajouteAnimation(alien, 'deplacement', animation)
-        commenceAnimation(alien, 'deplacement', 0)
-        ajouteEntite(aliens, alien)
 
 fini = False
 temps = pygame.time.Clock()
@@ -371,23 +554,19 @@ while not fini:
 
     traite_entrees()  # --- Traite entrees joueurs
 
-    fenetre.fill(NOIR)
-    pygame.draw.rect(fenetre, BLANC, border_left)
-    pygame.draw.rect(fenetre, BLANC, border_right)
 
-    anime(animation)
-    dessine(canon, fenetre)
-    miseAJour(tirs)
-    gestion_direction_aliens(aliens)
-    miseAJour(aliens)
+    if en_jeu and en_pause:
+        pause()
+    elif en_jeu and game_over:
+        game_over_screen()
+    elif en_jeu and not en_pause:
+        jeu()
+    if not en_jeu:
+        menu()
 
-    detecte_touche(tirs, aliens)
-    enScene(tirs)
-    affiche(acteurs(aliens), fenetre)
 
     pygame.display.flip()
 
-    temps.tick(60)
 
 pygame.display.quit()
 pygame.quit()
