@@ -40,14 +40,14 @@ jobs:
           - os: macos-latest
             TARGET: macos
             CMD_BUILD: >
-                pyinstaller --clean -F -w -n space-invaders space-invaders.py &&
+                pyinstaller -F -w -n space-invaders space-invaders.py &&
                 cd dist/ &&
                 zip -r9 space-invaders space-invaders.app/
             OUT_FILE_NAME: space-invaders.zip
             ASSET_MIME: application/zip
           - os: windows-latest
             TARGET: windows
-            CMD_BUILD: pyinstaller --clean -F -w -n space-invaders space-invaders.py
+            CMD_BUILD: pyinstaller -F -w -n space-invaders space-invaders.py
             OUT_FILE_NAME: space-invaders.exe
             ASSET_MIME: application/vnd.microsoft.portable-executable
     steps:
