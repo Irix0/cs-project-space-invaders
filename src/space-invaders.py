@@ -1,6 +1,9 @@
 # PROJET PPI INFO2056 ULIEGE
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> master
 import pygame
 import random
 
