@@ -7,9 +7,9 @@ import random
 #### COULEURS
 NOIR = (0, 0, 0)
 BLANC = (255, 255, 255)
-GRIS_CLAIR = (211, 211, 211)
+GRIS_CLAIR = (169, 169, 169)
 ROUGE = (255, 0, 0)
-VERT = 35,204,1,255
+VERT = 35, 204, 1, 255
 
 SANTE_DEPART = 100
 
@@ -35,6 +35,9 @@ LARGEUR_BALLE = 3  # px
 VITESSE_BALLE = -80  # VITESSE VERTICALE
 INTERVALLE_TIR_JOUEUR = 1000  # ms | interval entre chaque tir
 INTERVALLE_TIR_ALIEN = 600  # ms
+
+TOUCHE_LARGEUR = 64
+TOUCHE_HAUTEUR = 64
 
 
 #### Fonctions
@@ -111,7 +114,8 @@ def nouveauTirJoueur(scene, entite, decalle):
 
 def nouveauTirAlien(scene, position):
     tir = nouvelleEntite('tir', [position[0] + ALIEN_LARGEUR // 2, position[1] + ALIEN_HAUTEUR // 2],
-                         rect=pygame.Rect(position, (LARGEUR_BALLE, HAUTEUR_BALLE)), vitesse=[0, -VITESSE_BALLE], couleur=VERT)
+                         rect=pygame.Rect(position, (LARGEUR_BALLE, HAUTEUR_BALLE)), vitesse=[0, -VITESSE_BALLE],
+                         couleur=VERT)
     ajouteEntite(scene, tir)
 
 
@@ -129,6 +133,7 @@ def detecte_touche_aliens(tirs_joueur, aliens):
                         chrono = 0
                         score += 100
 
+
 def detecte_touche_canon(tirs_aliens, canon):
     global chrono
     global score
@@ -140,7 +145,7 @@ def detecte_touche_canon(tirs_aliens, canon):
                 enleveEntite(tirs_alien, tir)
                 score -= 50
                 chrono = 0
-                sante -=5
+                sante -= 5
 
 
 def deplace(entite):
@@ -352,16 +357,20 @@ def affiche(entites, ecran):
 
 def affiche_marquoir(score):
     marquoir = space_font.render("SCORE : {}".format(score), True, BLANC)
-    fenetre.blit(marquoir, (FENETRE_LARGEUR // 15, FENETRE_HAUTEUR - space_font.size("SCORE : {}".format(score))[1]))
-    
+    fenetre.blit(marquoir, (FENETRE_LARGEUR // 15, FENETRE_HAUTEUR - 25))
+    nombre_aliens_vertical = space_font.render("PROCHAINE VAGUE : {}".format(int(NBR_ALIENS_VERTICAL + 0.4)), True,
+                                               BLANC)
+    fenetre.blit(nombre_aliens_vertical, (FENETRE_LARGEUR // 15 * 5, FENETRE_HAUTEUR - 25))
+
+
 def affiche_sante(sante):
-    left = (FENETRE_LARGEUR//15)*12
+    left = (FENETRE_LARGEUR // 15) * 12
     top = FENETRE_HAUTEUR - space_font.size("SCORE : {}".format(score))[1]
-    width, height = (FENETRE_LARGEUR//15)*2, 20
+    width, height = (FENETRE_LARGEUR // 15) * 2, 20
 
     barre = pygame.Rect(left, top, width, height)
     pygame.draw.rect(fenetre, GRIS_CLAIR, barre)
-    barre_sante = pygame.Rect(left, top, width * (sante/SANTE_DEPART), height)
+    barre_sante = pygame.Rect(left, top, width * (sante / SANTE_DEPART), height)
     pygame.draw.rect(fenetre, ROUGE, barre_sante)
 
 
@@ -373,6 +382,7 @@ def traite_entrees():
     global tir_auto
     global game_over
     global NBR_ALIENS_VERTICAL
+    global montre_commandes
     for evenement in pygame.event.get():
         if evenement.type == pygame.QUIT:
             fini = True
@@ -392,7 +402,12 @@ def traite_entrees():
                     else:
                         tir_auto = True
             else:
-                en_jeu = True
+                if evenement.key == pygame.K_TAB and not montre_commandes:
+                    montre_commandes = True
+                elif evenement.key == pygame.K_TAB and montre_commandes:
+                    montre_commandes = False
+                else:
+                    en_jeu = True
             if game_over:
                 game_over = False
                 en_jeu = False
@@ -400,8 +415,9 @@ def traite_entrees():
                 for alien in acteurs(aliens):
                     enleveEntite(aliens, alien)
 
+
 def init_vague():
-    for x in range(NBR_ALIENS_VERTICAL):
+    for x in range(int(NBR_ALIENS_VERTICAL)):
         for i in range(NBR_ALIENS_HORIZONTAL):
             alien = nouvelleEntite('alien', [32 + i * DISTANCE_ALIEN_HORIZONTAL, x * DISTANCE_ALIEN_VERTICAL])
             alien['vitesse'][0] = VITESSE_ALIEN
@@ -414,12 +430,18 @@ def init_vague():
             commenceAnimation(alien, 'deplacement', 0)
             ajouteEntite(aliens, alien)
 
+
 def jeu():
     pygame.key.set_repeat(100, 25)
     global tir_auto
     global NBR_ALIENS_VERTICAL
+    global game_over
+    global sante
     if not acteurs(aliens):
-        NBR_ALIENS_VERTICAL += 1
+        NBR_ALIENS_VERTICAL += 0.4
+        sante += 20
+        if sante > 100:
+            sante = 100
         init_vague()
     fenetre.fill(NOIR)
     pygame.draw.rect(fenetre, BLANC, border_left)
@@ -430,6 +452,8 @@ def jeu():
     affiche_sante(sante)
     anime(animation)
     dessine(canon, fenetre)
+    if sante < 0:
+        game_over = True
     if tir_auto:
         nouveauTirJoueur(tirs_joueur, canon, CANON_LARGEUR // 2)
     if acteurs(aliens):
@@ -444,29 +468,35 @@ def jeu():
         enScene(tirs_alien)
         affiche(acteurs(aliens), fenetre)
 
-
     temps.tick(60)
+
 
 def pause():
     pygame.key.set_repeat()
     titre_pause = space_font_grand.render("PAUSE", True, BLANC)
     sous_titre_pause = space_font.render("Appuyez sur n'importe quelle touche pour continuer.", True, GRIS_CLAIR)
-    position_titre_pause = (FENETRE_LARGEUR//2 - space_font_grand.size("PAUSE")[0]//2, FENETRE_HAUTEUR//2 - space_font_grand.size("PAUSE")[1])
-    position_sous_titre_pause = (FENETRE_LARGEUR//2 - space_font.size("Appuyez sur n'importe quelle touche pour continuer.")[0]//2, position_titre_pause[1] + 100)
+    position_titre_pause = (FENETRE_LARGEUR // 2 - space_font_grand.size("PAUSE")[0] // 2,
+                            FENETRE_HAUTEUR // 2 - space_font_grand.size("PAUSE")[1])
+    position_sous_titre_pause = (
+        FENETRE_LARGEUR // 2 - space_font.size("Appuyez sur n'importe quelle touche pour continuer.")[0] // 2,
+        position_titre_pause[1] + 100)
     fenetre.blit(titre_pause, position_titre_pause)
     fenetre.blit(sous_titre_pause, position_sous_titre_pause)
     temps.tick(5)
 
+
 def game_over_screen():
     pygame.key.set_repeat()
     titre_game_over = space_font_grand.render("GAME OVER", True, BLANC)
-    position_titre_game_over = (FENETRE_LARGEUR//2 - space_font_grand.size("GAME OVER")[0]//2, FENETRE_HAUTEUR//2 - space_font_grand.size("GAME OVER")[1])
+    position_titre_game_over = (FENETRE_LARGEUR // 2 - space_font_grand.size("GAME OVER")[0] // 2,
+                                FENETRE_HAUTEUR // 2 - space_font_grand.size("GAME OVER")[1])
     fenetre.blit(titre_game_over, position_titre_game_over)
     temps.tick(5)
 
+
 def decor_menu(position_titre_principal):
     decor = nouvelleScene()
-    #ALIEN GAUCHE
+    # ALIEN GAUCHE
     position_alien1 = [position_titre_principal[0] - 100, position_titre_principal[1] - 5]
     alien1 = nouvelleEntite('alien', position=position_alien1)
     ajoutePose(alien1, 'ALIEN_DOWN', alien_down_image)
@@ -474,8 +504,9 @@ def decor_menu(position_titre_principal):
     ajouteAnimation(alien1, 'deplacement', animation)
     commenceAnimation(alien1, 'deplacement', 0)
     ajouteEntite(decor, alien1)
-    #ALIEN DROIT
-    position_alien2 = [position_titre_principal[0] + space_font_grand.size("SPACE INVADERS")[0]+25, position_titre_principal[1] - 5]
+    # ALIEN DROIT
+    position_alien2 = [position_titre_principal[0] + space_font_grand.size("SPACE INVADERS")[0] + 40,
+                       position_titre_principal[1] - 5]
     alien2 = nouvelleEntite('alien', position=position_alien2)
     ajoutePose(alien2, 'ALIEN_DOWN', alien_down_image)
     ajoutePose(alien2, 'ALIEN_UP', alien_up_image)
@@ -487,18 +518,48 @@ def decor_menu(position_titre_principal):
     miseAJour(decor)
     affiche(acteurs(decor), fenetre)
 
+
+def montre_commandes_menu():
+    fenetre.fill(NOIR)
+    background = pygame.Rect(FENETRE_LARGEUR // 10, FENETRE_HAUTEUR // 10, (FENETRE_LARGEUR // 10) * 8,
+                             (FENETRE_HAUTEUR // 10) * 8)
+    pygame.draw.rect(fenetre, GRIS_CLAIR, background)
+    titre = space_font_grand.render("Commandes :", True, NOIR)
+    fenetre.blit(titre,
+                 (FENETRE_LARGEUR // 2 - space_font_grand.size("Commandes :")[0] // 2, (FENETRE_HAUTEUR // 10) * 2))
+    # ESPACE
+    fenetre.blit(touches['espace'], ((FENETRE_LARGEUR//10) * 1.5, (FENETRE_HAUTEUR//10) * 4))
+    tir = space_font.render("tir", True, NOIR)
+    fenetre.blit(tir, ((FENETRE_LARGEUR//10) * 3, (FENETRE_HAUTEUR//10) * 4 + 25))
+    # FLECHES
+    fenetre.blit(touches['fleche_gauche'], ((FENETRE_LARGEUR//10) * 1.5, (FENETRE_HAUTEUR//10) * 5.5))
+    fenetre.blit(touches['fleche_droite'], ((FENETRE_LARGEUR//10) * 2.2, (FENETRE_HAUTEUR//10) * 5.5))
+    deplacement = space_font.render("deplacement", True, NOIR)
+    fenetre.blit(deplacement, ((FENETRE_LARGEUR//10) * 3, (FENETRE_HAUTEUR//10) * 5.5 + 25))
+    # A
+    fenetre.blit(touches['a'], ((FENETRE_LARGEUR // 10) * 1.5, (FENETRE_HAUTEUR // 10) * 7))
+    tir_auto = space_font.render("tir automatique", True, NOIR)
+    fenetre.blit(tir_auto, ((FENETRE_LARGEUR // 10) * 3, (FENETRE_HAUTEUR // 10) * 7 + 25))
+    temps.tick(5)
+
+
 def menu():
     pygame.key.set_repeat()
     fenetre.fill(NOIR)
     ##TITRES
     titre_principal = space_font_grand.render("SPACE INVADERS", True, BLANC)
     titre_start = space_font.render("Appuyez sur n'importe quelle touche pour commencer.", True, GRIS_CLAIR)
-    position_titre_principal = (FENETRE_LARGEUR//2 - space_font_grand.size("SPACE INVADERS")[0]//2, 150)
-    position_titre_start = (FENETRE_LARGEUR // 2 - space_font.size("Appuyez sur n'importe quelle touche pour continuer.")[0]// 2, 250)
+    titre_montre_commandes = space_font.render("Appuyez sur TAB pour voir les commandes.", True, GRIS_CLAIR)
+    position_titre_principal = (FENETRE_LARGEUR // 2 - space_font_grand.size("SPACE INVADERS")[0] // 2, 150)
+    position_titre_start = (
+        FENETRE_LARGEUR // 2 - space_font.size("Appuyez sur n'importe quelle touche pour continuer.")[0] // 2, 250)
+    position_titre_montre_commandes = (
+    FENETRE_LARGEUR // 2 - space_font.size("Appuyez sur TAB pour voir les commandes.")[0] // 2, 300)
     fenetre.blit(titre_principal, position_titre_principal)
     fenetre.blit(titre_start, position_titre_start)
+    fenetre.blit(titre_montre_commandes, position_titre_montre_commandes)
 
-    #ANIMATION ALIEN
+    # ANIMATION ALIEN
     decor_menu(position_titre_principal)
     temps.tick(5)
 
@@ -515,16 +576,34 @@ en_jeu = False
 en_pause = False
 fin_vague = True
 tir_auto = False
+montre_commandes = False
 
 fenetre_taille = (FENETRE_LARGEUR, FENETRE_HAUTEUR)
 fenetre = pygame.display.set_mode(fenetre_taille)
 pygame.display.set_caption('SPACE INVADERS')
 
 pygame.font.init()
-space_font = pygame.font.Font('fonts/space_invaders.ttf', 18)
-space_font_grand = pygame.font.Font('fonts/space_invaders.ttf', 48)
 
-canon_image = pygame.image.load('images/laser_canon.webp').convert_alpha(fenetre)
+# COMMON
+space_font = pygame.font.Font('assets/space_invaders.ttf', 18)
+space_font_grand = pygame.font.Font('assets/space_invaders.ttf', 48)
+touche_fleche = pygame.image.load('assets/touche_fleche_droit.png').convert_alpha(fenetre)
+
+touches = {}
+for nom_image, nom_fichier, LARGEUR, HAUTEUR in (('fleche_droite', 'touche_fleche_droit.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
+                                ('fleche_gauche', 'touche_fleche_gauche.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
+                                ('a', 'touche_a.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
+                                ('espace', 'touche_espace.png', 128, TOUCHE_HAUTEUR),
+                                ):
+    chemin = 'assets/' + nom_fichier
+    image = pygame.image.load(chemin).convert_alpha(fenetre)
+    image = pygame.transform.scale(image, (LARGEUR, HAUTEUR))
+    touches[nom_image] = image
+
+
+
+# CANON
+canon_image = pygame.image.load('assets/laser_canon.webp').convert_alpha(fenetre)
 canon_image = pygame.transform.scale(canon_image, (CANON_LARGEUR, CANON_HAUTEUR))
 canon = nouvelleEntite('canon', [(FENETRE_LARGEUR - CANON_LARGEUR) // 2, CANON_Y])
 canon['image'] = canon_image
@@ -538,16 +617,14 @@ barre_limite = pygame.Rect(0, (FENETRE_HAUTEUR // 10) * 8, FENETRE_LARGEUR, 5)
 
 aliens = nouvelleScene()
 
-alien_up_image = pygame.image.load('images/alien-up.png').convert_alpha(fenetre)
+alien_up_image = pygame.image.load('assets/alien-up.png').convert_alpha(fenetre)
 alien_up_image = pygame.transform.scale(alien_up_image, (ALIEN_LARGEUR, ALIEN_HAUTEUR))
-alien_down_image = pygame.image.load('images/alien-down.png').convert_alpha(fenetre)
+alien_down_image = pygame.image.load('assets/alien-down.png').convert_alpha(fenetre)
 alien_down_image = pygame.transform.scale(alien_down_image, (ALIEN_LARGEUR, ALIEN_HAUTEUR))
 
 animation = nouvelleAnimation()
 ajouteMouvement(animation, mouvement('ALIEN_UP', INTERVALLE_DEPLACEMENT_ALIEN))
 ajouteMouvement(animation, mouvement('ALIEN_DOWN', INTERVALLE_DEPLACEMENT_ALIEN))
-
-
 
 fini = False
 temps = pygame.time.Clock()
@@ -557,19 +634,18 @@ while not fini:
 
     traite_entrees()  # --- Traite entrees joueurs
 
-
     if en_jeu and en_pause:
         pause()
     elif en_jeu and game_over:
         game_over_screen()
     elif en_jeu and not en_pause:
         jeu()
-    if not en_jeu:
+    if not en_jeu and montre_commandes:
+        montre_commandes_menu()
+    elif not en_jeu:
         menu()
 
-
     pygame.display.flip()
-
 
 pygame.display.quit()
 pygame.quit()
