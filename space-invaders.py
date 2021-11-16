@@ -1,6 +1,7 @@
 # PROJET PPI INFO2056 ULIEGE
 # TO DO :
 # POWERUPS
+# BACKGROUND ETOILES
 
 
 import pygame
@@ -380,6 +381,14 @@ def affiche_sante(sante):
     barre_sante = pygame.Rect(left, top, width * (sante / SANTE_DEPART), height)
     pygame.draw.rect(fenetre, ROUGE, barre_sante)
 
+## Background
+def affiche_background():
+    if backgrounds['dernier_affichage'] < maintenant - 500:
+        backgrounds['dernier_background'] += 1
+        if backgrounds['dernier_background'] == 5:
+            backgrounds['dernier_background'] = 1
+        backgrounds['dernier_affichage'] = maintenant
+    fenetre.blit(backgrounds['{}'.format(backgrounds['dernier_background'])], (0, 0))
 
 ## Entrees
 def traite_entrees():
@@ -394,25 +403,22 @@ def traite_entrees():
         if evenement.type == pygame.QUIT:
             fini = True
         if evenement.type == pygame.KEYDOWN:
-            if en_jeu:
+            if en_pause:
+                en_pause = not en_pause
+            elif en_jeu and not en_pause:
                 if evenement.key == pygame.K_LEFT:
                     deplacer_canon(-CANON_DEPLACEMENT)
                 elif evenement.key == pygame.K_RIGHT:
                     deplacer_canon(CANON_DEPLACEMENT)
-                elif evenement.key == pygame.K_SPACE and en_jeu:
+                elif evenement.key == pygame.K_SPACE:
                     nouveauTirJoueur(tirs_joueur, canon, CANON_LARGEUR // 2)
                 elif evenement.key == pygame.K_ESCAPE:
-                    en_pause = True
+                    en_pause = not en_pause
                 elif evenement.key == pygame.K_a:
-                    if tir_auto:
-                        tir_auto = False
-                    else:
-                        tir_auto = True
+                    tir_auto = not tir_auto
             else:
-                if evenement.key == pygame.K_TAB and not montre_commandes:
-                    montre_commandes = True
-                elif evenement.key == pygame.K_TAB and montre_commandes:
-                    montre_commandes = False
+                if evenement.key == pygame.K_TAB:
+                    montre_commandes = not montre_commandes
                 else:
                     en_jeu = True
             if game_over:
@@ -439,7 +445,8 @@ def init_vague():
 
 
 def jeu():
-    pygame.key.set_repeat(100, 25)
+    if pygame.key.get_repeat() != (100, 25):
+        pygame.key.set_repeat(100, 25)
     global tir_auto
     global NBR_ALIENS_VERTICAL
     global game_over
@@ -456,6 +463,7 @@ def jeu():
             sante = 100
         init_vague()
     fenetre.fill(NOIR)
+    affiche_background()
     if aliens_warning:
         if maintenant > delai_barre_limite + 500:
             delai_barre_limite = maintenant
@@ -493,7 +501,8 @@ def jeu():
 
 
 def pause():
-    pygame.key.set_repeat()
+    if pygame.key.get_repeat() != (0, 0):
+        pygame.key.set_repeat()
     titre_pause = space_font_grand.render("PAUSE", True, BLANC)
     sous_titre_pause = space_font.render("Appuyez sur n'importe quelle touche pour continuer.", True, GRIS_CLAIR)
     position_titre_pause = (FENETRE_LARGEUR // 2 - space_font_grand.size("PAUSE")[0] // 2,
@@ -503,11 +512,18 @@ def pause():
         position_titre_pause[1] + 100)
     fenetre.blit(titre_pause, position_titre_pause)
     fenetre.blit(sous_titre_pause, position_sous_titre_pause)
+    for entite in acteurs(aliens):
+        entite['momentDeplacement'] = maintenant
+    for entite in acteurs(tirs_joueur):
+        entite['momentDeplacement'] =  maintenant
+    for entite in acteurs(tirs_alien):
+        entite['momentDeplacement'] = maintenant
     temps.tick(5)
 
 
 def game_over_screen():
-    pygame.key.set_repeat()
+    if pygame.key.get_repeat() != (0, 0):
+        pygame.key.set_repeat()
     titre_game_over = space_font_grand.render("GAME OVER", True, BLANC)
     position_titre_game_over = (FENETRE_LARGEUR // 2 - space_font_grand.size("GAME OVER")[0] // 2,
                                 FENETRE_HAUTEUR // 2 - space_font_grand.size("GAME OVER")[1])
@@ -542,6 +558,7 @@ def decor_menu(position_titre_principal):
 
 def montre_commandes_menu():
     fenetre.fill(NOIR)
+    affiche_background()
     background = pygame.Rect(FENETRE_LARGEUR // 10, FENETRE_HAUTEUR // 10, (FENETRE_LARGEUR // 10) * 8,
                              (FENETRE_HAUTEUR // 10) * 8)
     pygame.draw.rect(fenetre, GRIS_CLAIR, background)
@@ -565,8 +582,10 @@ def montre_commandes_menu():
 
 
 def menu():
-    pygame.key.set_repeat()
+    if pygame.key.get_repeat() != (0, 0):
+        pygame.key.set_repeat()
     fenetre.fill(NOIR)
+    affiche_background()
     ##TITRES
     titre_principal = space_font_grand.render("SPACE INVADERS", True, BLANC)
     titre_start = space_font.render("Appuyez sur n'importe quelle touche pour commencer.", True, GRIS_CLAIR)
@@ -607,6 +626,23 @@ aliens_warning = False
 fenetre_taille = (FENETRE_LARGEUR, FENETRE_HAUTEUR)
 fenetre = pygame.display.set_mode(fenetre_taille)
 pygame.display.set_caption('SPACE INVADERS')
+
+# BACKGROUND
+backgrounds = {
+    'dernier_background': 1,
+    'dernier_affichage': pygame.time.get_ticks(),
+}
+for nom_image, nom_fichier, LARGEUR, HAUTEUR in (
+('1', 'frame-1.gif', FENETRE_LARGEUR, FENETRE_HAUTEUR),
+('2', 'frame-2.gif', FENETRE_LARGEUR, FENETRE_HAUTEUR),
+('3', 'frame-3.gif', FENETRE_LARGEUR, FENETRE_HAUTEUR),
+('4', 'frame-4.gif', FENETRE_LARGEUR, FENETRE_HAUTEUR),
+):
+    chemin = 'assets/background/' + nom_fichier
+    image = pygame.image.load(chemin).convert_alpha(fenetre)
+    image = pygame.transform.scale(image, (LARGEUR, HAUTEUR))
+    backgrounds[nom_image] = image
+
 
 # COMMON
 pygame.font.init()
@@ -659,7 +695,6 @@ while not fini:
     maintenant = pygame.time.get_ticks()
 
     traite_entrees()  # --- Traite entrees joueurs
-
     if en_jeu and en_pause:
         pause()
     elif en_jeu and game_over:
