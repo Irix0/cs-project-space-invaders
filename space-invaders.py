@@ -1,4 +1,6 @@
 # PROJET PPI INFO2056 ULIEGE
+# TO DO :
+# POWERUPS
 
 
 import pygame
@@ -309,6 +311,7 @@ def change_direction_entites(entites, direction, vitesse):
 
 def gestion_direction_aliens(aliens):
     global game_over
+    global aliens_warning
     for alien in acteurs(aliens):
         if int(alien['position'][0]) > FENETRE_LARGEUR - ALIEN_LARGEUR - 32:
             change_direction_entites(aliens, 'BAS', VITESSE_ALIEN)
@@ -325,17 +328,21 @@ def gestion_direction_aliens(aliens):
             alien['rangeeAlien'] += 1
             alien['position'][1] = alien['rangeeAlien'] * DISTANCE_ALIEN_VERTICAL
 
+        if int(alien['position'][1]) > (FENETRE_HAUTEUR // 10) * 6 - ALIEN_HAUTEUR:
+            aliens_warning = True
+        else:
+            aliens_warning = False
         if int(alien['position'][1]) > (FENETRE_HAUTEUR // 10) * 8 - ALIEN_HAUTEUR:
             game_over = True
 
 
 def tir_aleatoire_aliens(aliens):
-    global dernier_tir_alien
-    if dernier_tir_alien < maintenant - INTERVALLE_TIR_ALIEN:
+    global dernier_tir_aliens
+    if dernier_tir_aliens < maintenant - random.randrange(INTERVALLE_TIR_ALIEN, 20000):
         if acteurs(aliens):
             alien_aleatoire = random.choice(acteurs(aliens))
             nouveauTirAlien(tirs_alien, alien_aleatoire['position'])
-            dernier_tir_alien = maintenant
+            dernier_tir_aliens = maintenant
 
 
 def affiche(entites, ecran):
@@ -437,16 +444,30 @@ def jeu():
     global NBR_ALIENS_VERTICAL
     global game_over
     global sante
+    global barre_limite_couleur
+    global delai_barre_limite
+    global aliens_warning
+    global VITESSE_ALIEN
     if not acteurs(aliens):
         NBR_ALIENS_VERTICAL += 0.4
-        sante += 20
+        VITESSE_ALIEN += 2.5
+        sante += 10
         if sante > 100:
             sante = 100
         init_vague()
     fenetre.fill(NOIR)
+    if aliens_warning:
+        if maintenant > delai_barre_limite + 500:
+            delai_barre_limite = maintenant
+            if barre_limite_couleur == ROUGE:
+                barre_limite_couleur = BLANC
+            else:
+                barre_limite_couleur = ROUGE
+    else:
+        barre_limite_couleur = BLANC
+    pygame.draw.rect(fenetre, barre_limite_couleur, barre_limite)
     pygame.draw.rect(fenetre, BLANC, border_left)
     pygame.draw.rect(fenetre, BLANC, border_right)
-    pygame.draw.rect(fenetre, ROUGE, barre_limite)
 
     affiche_marquoir(score)
     affiche_sante(sante)
@@ -497,7 +518,7 @@ def game_over_screen():
 def decor_menu(position_titre_principal):
     decor = nouvelleScene()
     # ALIEN GAUCHE
-    position_alien1 = [position_titre_principal[0] - 100, position_titre_principal[1] - 5]
+    position_alien1 = [position_titre_principal[0] - ALIEN_LARGEUR - 40, position_titre_principal[1] - 5]
     alien1 = nouvelleEntite('alien', position=position_alien1)
     ajoutePose(alien1, 'ALIEN_DOWN', alien_down_image)
     ajoutePose(alien1, 'ALIEN_UP', alien_up_image)
@@ -528,14 +549,14 @@ def montre_commandes_menu():
     fenetre.blit(titre,
                  (FENETRE_LARGEUR // 2 - space_font_grand.size("Commandes :")[0] // 2, (FENETRE_HAUTEUR // 10) * 2))
     # ESPACE
-    fenetre.blit(touches['espace'], ((FENETRE_LARGEUR//10) * 1.5, (FENETRE_HAUTEUR//10) * 4))
+    fenetre.blit(touches['espace'], ((FENETRE_LARGEUR // 10) * 1.5, (FENETRE_HAUTEUR // 10) * 4))
     tir = space_font.render("tir", True, NOIR)
-    fenetre.blit(tir, ((FENETRE_LARGEUR//10) * 3, (FENETRE_HAUTEUR//10) * 4 + 25))
+    fenetre.blit(tir, ((FENETRE_LARGEUR // 10) * 3, (FENETRE_HAUTEUR // 10) * 4 + 25))
     # FLECHES
-    fenetre.blit(touches['fleche_gauche'], ((FENETRE_LARGEUR//10) * 1.5, (FENETRE_HAUTEUR//10) * 5.5))
-    fenetre.blit(touches['fleche_droite'], ((FENETRE_LARGEUR//10) * 2.2, (FENETRE_HAUTEUR//10) * 5.5))
+    fenetre.blit(touches['fleche_gauche'], ((FENETRE_LARGEUR // 10) * 1.5, (FENETRE_HAUTEUR // 10) * 5.5))
+    fenetre.blit(touches['fleche_droite'], ((FENETRE_LARGEUR // 10) * 2.2, (FENETRE_HAUTEUR // 10) * 5.5))
     deplacement = space_font.render("deplacement", True, NOIR)
-    fenetre.blit(deplacement, ((FENETRE_LARGEUR//10) * 3, (FENETRE_HAUTEUR//10) * 5.5 + 25))
+    fenetre.blit(deplacement, ((FENETRE_LARGEUR // 10) * 3, (FENETRE_HAUTEUR // 10) * 5.5 + 25))
     # A
     fenetre.blit(touches['a'], ((FENETRE_LARGEUR // 10) * 1.5, (FENETRE_HAUTEUR // 10) * 7))
     tir_auto = space_font.render("tir automatique", True, NOIR)
@@ -554,7 +575,7 @@ def menu():
     position_titre_start = (
         FENETRE_LARGEUR // 2 - space_font.size("Appuyez sur n'importe quelle touche pour continuer.")[0] // 2, 250)
     position_titre_montre_commandes = (
-    FENETRE_LARGEUR // 2 - space_font.size("Appuyez sur TAB pour voir les commandes.")[0] // 2, 300)
+        FENETRE_LARGEUR // 2 - space_font.size("Appuyez sur TAB pour voir les commandes.")[0] // 2, 300)
     fenetre.blit(titre_principal, position_titre_principal)
     fenetre.blit(titre_start, position_titre_start)
     fenetre.blit(titre_montre_commandes, position_titre_montre_commandes)
@@ -567,40 +588,43 @@ def menu():
 pygame.init()
 random.seed()
 
+# INITIALISATION DES VARIABLES GLOBALES
 chrono = 0
 score = 0
 sante = SANTE_DEPART
-dernier_tir_alien = 0
+dernier_tir_aliens = 0
 game_over = False
 en_jeu = False
 en_pause = False
 fin_vague = True
 tir_auto = False
 montre_commandes = False
+barre_limite_couleur = BLANC
+delai_barre_limite = 0
+aliens_warning = False
 
+# CREATION FENETRE
 fenetre_taille = (FENETRE_LARGEUR, FENETRE_HAUTEUR)
 fenetre = pygame.display.set_mode(fenetre_taille)
 pygame.display.set_caption('SPACE INVADERS')
 
-pygame.font.init()
-
 # COMMON
+pygame.font.init()
 space_font = pygame.font.Font('assets/space_invaders.ttf', 18)
 space_font_grand = pygame.font.Font('assets/space_invaders.ttf', 48)
 touche_fleche = pygame.image.load('assets/touche_fleche_droit.png').convert_alpha(fenetre)
-
+# INITIALISATION DES IMAGES TOUCHES , utilisation : touches['a']
 touches = {}
-for nom_image, nom_fichier, LARGEUR, HAUTEUR in (('fleche_droite', 'touche_fleche_droit.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
-                                ('fleche_gauche', 'touche_fleche_gauche.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
-                                ('a', 'touche_a.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
-                                ('espace', 'touche_espace.png', 128, TOUCHE_HAUTEUR),
-                                ):
+for nom_image, nom_fichier, LARGEUR, HAUTEUR in (
+('fleche_droite', 'touche_fleche_droit.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
+('fleche_gauche', 'touche_fleche_gauche.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
+('a', 'touche_a.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
+('espace', 'touche_espace.png', 128, TOUCHE_HAUTEUR),
+):
     chemin = 'assets/' + nom_fichier
     image = pygame.image.load(chemin).convert_alpha(fenetre)
     image = pygame.transform.scale(image, (LARGEUR, HAUTEUR))
     touches[nom_image] = image
-
-
 
 # CANON
 canon_image = pygame.image.load('assets/laser_canon.webp').convert_alpha(fenetre)
@@ -608,20 +632,22 @@ canon_image = pygame.transform.scale(canon_image, (CANON_LARGEUR, CANON_HAUTEUR)
 canon = nouvelleEntite('canon', [(FENETRE_LARGEUR - CANON_LARGEUR) // 2, CANON_Y])
 canon['image'] = canon_image
 
+# SCENES DE TIRS
 tirs_joueur = nouvelleScene()
 tirs_alien = nouvelleScene()
 
+# ZONE DE JEU
 border_left = pygame.Rect(0, 0, 32, FENETRE_HAUTEUR)
 border_right = pygame.Rect(FENETRE_LARGEUR - 32, 0, 32, FENETRE_HAUTEUR)
 barre_limite = pygame.Rect(0, (FENETRE_HAUTEUR // 10) * 8, FENETRE_LARGEUR, 5)
 
+# INITIALIASATION ALIENS
 aliens = nouvelleScene()
-
 alien_up_image = pygame.image.load('assets/alien-up.png').convert_alpha(fenetre)
 alien_up_image = pygame.transform.scale(alien_up_image, (ALIEN_LARGEUR, ALIEN_HAUTEUR))
 alien_down_image = pygame.image.load('assets/alien-down.png').convert_alpha(fenetre)
 alien_down_image = pygame.transform.scale(alien_down_image, (ALIEN_LARGEUR, ALIEN_HAUTEUR))
-
+# ANIMATION POUR LES ALIENS
 animation = nouvelleAnimation()
 ajouteMouvement(animation, mouvement('ALIEN_UP', INTERVALLE_DEPLACEMENT_ALIEN))
 ajouteMouvement(animation, mouvement('ALIEN_DOWN', INTERVALLE_DEPLACEMENT_ALIEN))
