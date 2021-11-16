@@ -7,6 +7,9 @@
 import pygame
 import random
 
+#définition d'un nouvel évènement pour représenter une touche qui reste enfoncée
+pygame.KEYPRESSED = pygame.USEREVENT
+
 #### COULEURS
 NOIR = (0, 0, 0)
 BLANC = (255, 255, 255)
@@ -381,6 +384,7 @@ def affiche_sante(sante):
     barre_sante = pygame.Rect(left, top, width * (sante / SANTE_DEPART), height)
     pygame.draw.rect(fenetre, ROUGE, barre_sante)
 
+
 ## Background
 def affiche_background():
     if backgrounds['dernier_affichage'] < maintenant - 500:
@@ -390,43 +394,6 @@ def affiche_background():
         backgrounds['dernier_affichage'] = maintenant
     fenetre.blit(backgrounds['{}'.format(backgrounds['dernier_background'])], (0, 0))
 
-## Entrees
-def traite_entrees():
-    global fini
-    global en_jeu
-    global en_pause
-    global tir_auto
-    global game_over
-    global NBR_ALIENS_VERTICAL
-    global montre_commandes
-    for evenement in pygame.event.get():
-        if evenement.type == pygame.QUIT:
-            fini = True
-        if evenement.type == pygame.KEYDOWN:
-            if en_pause:
-                en_pause = not en_pause
-            elif en_jeu and not en_pause:
-                if evenement.key == pygame.K_LEFT:
-                    deplacer_canon(-CANON_DEPLACEMENT)
-                elif evenement.key == pygame.K_RIGHT:
-                    deplacer_canon(CANON_DEPLACEMENT)
-                elif evenement.key == pygame.K_SPACE:
-                    nouveauTirJoueur(tirs_joueur, canon, CANON_LARGEUR // 2)
-                elif evenement.key == pygame.K_ESCAPE:
-                    en_pause = not en_pause
-                elif evenement.key == pygame.K_a:
-                    tir_auto = not tir_auto
-            else:
-                if evenement.key == pygame.K_TAB:
-                    montre_commandes = not montre_commandes
-                else:
-                    en_jeu = True
-            if game_over:
-                game_over = False
-                en_jeu = False
-                NBR_ALIENS_VERTICAL = 0
-                for alien in acteurs(aliens):
-                    enleveEntite(aliens, alien)
 
 
 def init_vague():
@@ -445,8 +412,8 @@ def init_vague():
 
 
 def jeu():
-    if pygame.key.get_repeat() != (100, 25):
-        pygame.key.set_repeat(100, 25)
+    if pygame.key.get_repeat() != (200, 25):
+        pygame.key.set_repeat(200, 25)
     global tir_auto
     global NBR_ALIENS_VERTICAL
     global game_over
@@ -501,8 +468,6 @@ def jeu():
 
 
 def pause():
-    if pygame.key.get_repeat() != (0, 0):
-        pygame.key.set_repeat()
     titre_pause = space_font_grand.render("PAUSE", True, BLANC)
     sous_titre_pause = space_font.render("Appuyez sur n'importe quelle touche pour continuer.", True, GRIS_CLAIR)
     position_titre_pause = (FENETRE_LARGEUR // 2 - space_font_grand.size("PAUSE")[0] // 2,
@@ -515,15 +480,13 @@ def pause():
     for entite in acteurs(aliens):
         entite['momentDeplacement'] = maintenant
     for entite in acteurs(tirs_joueur):
-        entite['momentDeplacement'] =  maintenant
+        entite['momentDeplacement'] = maintenant
     for entite in acteurs(tirs_alien):
         entite['momentDeplacement'] = maintenant
     temps.tick(5)
 
 
 def game_over_screen():
-    if pygame.key.get_repeat() != (0, 0):
-        pygame.key.set_repeat()
     titre_game_over = space_font_grand.render("GAME OVER", True, BLANC)
     position_titre_game_over = (FENETRE_LARGEUR // 2 - space_font_grand.size("GAME OVER")[0] // 2,
                                 FENETRE_HAUTEUR // 2 - space_font_grand.size("GAME OVER")[1])
@@ -582,8 +545,6 @@ def montre_commandes_menu():
 
 
 def menu():
-    if pygame.key.get_repeat() != (0, 0):
-        pygame.key.set_repeat()
     fenetre.fill(NOIR)
     affiche_background()
     ##TITRES
@@ -603,9 +564,110 @@ def menu():
     decor_menu(position_titre_principal)
     temps.tick(5)
 
+# Gestionnaire de répétition automatique de plusieurs touches
+# !!! NE PAS UTILISER pygame.key.set_repeat() dans votre programme !!!
+# ===== début GestionClavier =====
+def _nouveauEtatTouche():
+    return {
+        'actif': False,
+        'delai': 0,
+        'periode': 0,
+        'suivant': 0
+    }
+
+def nouvelleGestionClavier():
+    return {}
+
+# gc: gestionnaire de clavier (créé par nouvelleGestion Clavier())
+# touche: numéro de la touche (ex: pygame.K_e)
+# delai: attente (en ms) avant la première répétition
+# periode: temps (en ms) entre deux répétitions
+
+def repeteTouche(gc, touche, delai, periode):
+    pygame.key.set_repeat()
+
+    if touche in gc:
+        entree = gc[touche]
+    else:
+        entree = _nouveauEtatTouche()
+
+    entree['delai'] = delai
+    entree['periode'] = periode
+    gc[touche] = entree
+
+
+def scan(gc):
+    maintenant = pygame.time.get_ticks()
+    keys = pygame.key.get_pressed()
+    for touche in gc:
+        if keys[touche] == 1:
+            if gc[touche]['actif']:
+                if maintenant >= gc[touche]['suivant']:
+                    gc[touche]['suivant'] = gc[touche]['periode'] + maintenant
+                    pygame.event.post(pygame.event.Event(pygame.KEYPRESSED, {'key':touche}))
+            else:
+                gc[touche]['actif'] = True
+                gc[touche]['suivant'] = gc[touche]['delai'] + maintenant
+        else:
+            gc[touche]['actif'] = False
+            gc[touche]['suivant'] = 0
+
+
+# ===== fin GestionClavier =====
+
+# TRAITEMENT ENTREES
+def traite_entrees():
+    global fini
+    global en_jeu
+    global en_pause
+    global tir_auto
+    global game_over
+    global NBR_ALIENS_VERTICAL
+    global montre_commandes
+    for evenement in pygame.event.get():
+        if evenement.type == pygame.QUIT:
+            fini = True
+        elif evenement.type == pygame.KEYDOWN:
+            if en_pause and en_jeu:
+                if evenement.key == pygame.K_ESCAPE:
+                    en_pause = not en_pause
+            elif en_jeu and not en_pause:
+                if evenement.key == pygame.K_a:
+                    tir_auto = not tir_auto
+                elif evenement.key == pygame.K_ESCAPE:
+                    en_pause = not en_pause
+                elif evenement.key == pygame.K_SPACE:
+                    nouveauTirJoueur(tirs_joueur, canon, CANON_LARGEUR // 2)
+            else:
+                if evenement.key == pygame.K_TAB:
+                    montre_commandes = not montre_commandes
+                else:
+                    en_jeu = True
+            if game_over:
+                game_over = False
+                en_jeu = False
+                NBR_ALIENS_VERTICAL = 0
+                for alien in acteurs(aliens):
+                    enleveEntite(aliens, alien)
+        elif evenement.type == pygame.KEYPRESSED:
+            if en_jeu:
+                if evenement.key == pygame.K_LEFT:
+                    deplacer_canon(-CANON_DEPLACEMENT)
+                elif evenement.key == pygame.K_RIGHT:
+                    deplacer_canon(CANON_DEPLACEMENT)
+                elif evenement.key == pygame.K_SPACE:
+                    nouveauTirJoueur(tirs_joueur, canon, CANON_LARGEUR // 2)
+
 
 pygame.init()
 random.seed()
+
+# INITIALISATION CLAVIER
+gc = nouvelleGestionClavier()
+repeteTouche(gc, pygame.K_SPACE, 100, 25)
+repeteTouche(gc, pygame.K_RIGHT, 100, 25)
+repeteTouche(gc, pygame.K_LEFT, 100, 25)
+
 
 # INITIALISATION DES VARIABLES GLOBALES
 chrono = 0
@@ -633,16 +695,15 @@ backgrounds = {
     'dernier_affichage': pygame.time.get_ticks(),
 }
 for nom_image, nom_fichier, LARGEUR, HAUTEUR in (
-('1', 'frame-1.gif', FENETRE_LARGEUR, FENETRE_HAUTEUR),
-('2', 'frame-2.gif', FENETRE_LARGEUR, FENETRE_HAUTEUR),
-('3', 'frame-3.gif', FENETRE_LARGEUR, FENETRE_HAUTEUR),
-('4', 'frame-4.gif', FENETRE_LARGEUR, FENETRE_HAUTEUR),
+        ('1', 'frame-1.gif', FENETRE_LARGEUR, FENETRE_HAUTEUR),
+        ('2', 'frame-2.gif', FENETRE_LARGEUR, FENETRE_HAUTEUR),
+        ('3', 'frame-3.gif', FENETRE_LARGEUR, FENETRE_HAUTEUR),
+        ('4', 'frame-4.gif', FENETRE_LARGEUR, FENETRE_HAUTEUR),
 ):
     chemin = 'assets/background/' + nom_fichier
     image = pygame.image.load(chemin).convert_alpha(fenetre)
     image = pygame.transform.scale(image, (LARGEUR, HAUTEUR))
     backgrounds[nom_image] = image
-
 
 # COMMON
 pygame.font.init()
@@ -652,10 +713,10 @@ touche_fleche = pygame.image.load('assets/touche_fleche_droit.png').convert_alph
 # INITIALISATION DES IMAGES TOUCHES , utilisation : touches['a']
 touches = {}
 for nom_image, nom_fichier, LARGEUR, HAUTEUR in (
-('fleche_droite', 'touche_fleche_droit.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
-('fleche_gauche', 'touche_fleche_gauche.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
-('a', 'touche_a.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
-('espace', 'touche_espace.png', 128, TOUCHE_HAUTEUR),
+        ('fleche_droite', 'touche_fleche_droit.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
+        ('fleche_gauche', 'touche_fleche_gauche.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
+        ('a', 'touche_a.png', TOUCHE_LARGEUR, TOUCHE_HAUTEUR),
+        ('espace', 'touche_espace.png', 128, TOUCHE_HAUTEUR),
 ):
     chemin = 'assets/' + nom_fichier
     image = pygame.image.load(chemin).convert_alpha(fenetre)
@@ -693,7 +754,7 @@ temps = pygame.time.Clock()
 
 while not fini:
     maintenant = pygame.time.get_ticks()
-
+    scan(gc)
     traite_entrees()  # --- Traite entrees joueurs
     if en_jeu and en_pause:
         pause()
