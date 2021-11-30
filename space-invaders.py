@@ -1,13 +1,12 @@
 # PROJET PPI INFO2056 ULIEGE
 # TO DO :
 # POWERUPS
-# BACKGROUND ETOILES
 
 
 import pygame
 import random
 
-#définition d'un nouvel évènement pour représenter une touche qui reste enfoncée
+# définition d'un nouvel évènement pour représenter une touche qui reste enfoncée
 pygame.KEYPRESSED = pygame.USEREVENT
 
 #### COULEURS
@@ -16,6 +15,7 @@ BLANC = (255, 255, 255)
 GRIS_CLAIR = (169, 169, 169)
 ROUGE = (255, 0, 0)
 VERT = 35, 204, 1, 255
+BLEU = 32, 122, 217
 
 SANTE_DEPART = 100
 
@@ -25,7 +25,7 @@ FENETRE_HAUTEUR = 600  # px
 CANON_LARGEUR = 64  # px
 CANON_HAUTEUR = 64  # px
 CANON_Y = FENETRE_HAUTEUR * 0.85
-CANON_DEPLACEMENT = 5  # px
+canon_deplacement = 5  # px
 
 ALIEN_LARGEUR = 64  # px
 ALIEN_HAUTEUR = 64  # px
@@ -41,6 +41,7 @@ LARGEUR_BALLE = 3  # px
 VITESSE_BALLE = -80  # VITESSE VERTICALE
 INTERVALLE_TIR_JOUEUR = 1000  # ms | interval entre chaque tir
 INTERVALLE_TIR_ALIEN = 600  # ms
+INTERVALLE_POWERUP = 8000
 
 TOUCHE_LARGEUR = 64
 TOUCHE_HAUTEUR = 64
@@ -66,6 +67,7 @@ def nouvelleEntite(type, position=None, rect=None, vitesse=None, couleur=BLANC):
         'dernierTir': -INTERVALLE_TIR_JOUEUR,  # permet de tirer dès la première seconde
         'poses': {},  # dictionnaire de nom:image
         'animationActuelle': None,
+        'animé': True,
         'animations': {},
         'momentDeplacement': pygame.time.get_ticks(),
         'rect': rect,
@@ -116,6 +118,7 @@ def nouveauTirJoueur(scene, entite, decalle):
                              vitesse=[0, VITESSE_BALLE], couleur=BLANC)
         ajouteEntite(scene, tir)
         entite['dernierTir'] = maintenant
+        joue_son('TIR')
 
 
 def nouveauTirAlien(scene, position):
@@ -123,6 +126,7 @@ def nouveauTirAlien(scene, position):
                          rect=pygame.Rect(position, (LARGEUR_BALLE, HAUTEUR_BALLE)), vitesse=[0, -VITESSE_BALLE],
                          couleur=VERT)
     ajouteEntite(scene, tir)
+    joue_son('TIR ALIEN')
 
 
 def detecte_touche_aliens(tirs_joueur, aliens):
@@ -133,7 +137,7 @@ def detecte_touche_aliens(tirs_joueur, aliens):
             if rectangle(alien) != None:
                 if rectangle(alien).colliderect(tir['rect']) == 1:
                     chrono += 1
-                    if chrono == 20:
+                    if chrono > 20:
                         enleveEntite(aliens, alien)
                         enleveEntite(tirs_joueur, tir)
                         chrono = 0
@@ -144,14 +148,41 @@ def detecte_touche_canon(tirs_aliens, canon):
     global chrono
     global score
     global sante
+    global shield
     for tir in acteurs(tirs_alien):
         if rectangle(canon).colliderect(tir['rect']) == 1:
             chrono += 1
-            if chrono == 20:
+            if chrono > 20:
                 enleveEntite(tirs_alien, tir)
+                if shield > 5:
+                    shield -= 7.5
+                else:
+                    sante -= 5
                 score -= 50
                 chrono = 0
                 sante -= 5
+
+
+def detecte_touche_powerups(powerups, canon):
+    global chrono, sante, shield, score, canon_deplacement
+    for powerup in acteurs(powerups):
+        if rectangle(canon).colliderect(rectangle(powerup)) == 1:
+            chrono += 1
+            if chrono > 20:
+                enleveEntite(powerups, powerup)
+                if powerup['power'] == 'SHIELD':
+                    shield += 25
+                    if shield > 100:
+                        shield = 100
+                elif powerup['power'] == 'VIE':
+                    sante += 10
+                    if sante > 100:
+                        sante = 100
+                elif powerup['power'] == 'BOOST_VITESSE':
+                    canon_deplacement += 1
+                score += 20
+                chrono = 0
+                joue_son('POWERUP')
 
 
 def deplace(entite):
@@ -338,6 +369,9 @@ def gestion_direction_aliens(aliens):
             aliens_warning = False
         if int(alien['position'][1]) > (FENETRE_HAUTEUR // 10) * 8 - ALIEN_HAUTEUR:
             game_over = True
+            if random.randrange(400) == 0:
+                joue_musique('STOP')
+                joue_musique('GAME OVER')
 
 
 def tir_aleatoire_aliens(aliens):
@@ -349,21 +383,49 @@ def tir_aleatoire_aliens(aliens):
             dernier_tir_aliens = maintenant
 
 
+## POWERUPS
+def nouveauPowerup(position, vitesse):
+    power = random.choice(powerups_images['liste'])
+    return {
+        'visible': True,
+        'position': position,
+        'vitesse': vitesse,
+        'acceleration': [0, 0],
+        'momentDeplacement': pygame.time.get_ticks(),
+        'power': power,
+        'image': powerups_images[power],
+        'type': 'powerup',
+        'animé': False,
+    }
+
+
+def power_up_aleatoire(aliens):
+    global dernier_power_up
+    if dernier_power_up < maintenant - random.randrange(INTERVALLE_POWERUP, 40000):
+        if acteurs(aliens):
+            alien_aleatoire = random.choice(acteurs(aliens))
+        powerup = nouveauPowerup([alien_aleatoire['position'][0], alien_aleatoire['position'][1]], [0, -VITESSE_BALLE])
+        ajouteEntite(powerups, powerup)
+        dernier_power_up = maintenant
+
+
+## AFFICHAGE
 def affiche(entites, ecran):
     for objet in entites:
-        if estVisible(objet):
-            if estEnAnimation(objet):
-                animationActuelle = objet['animationActuelle']
-                poseActuelle = mouvementActuel(animationActuelle)
-                anime(animationActuelle)
-                nouvellePose = mouvementActuel(animationActuelle)
-                if nouvellePose == None:
-                    objet['animationActuelle'] = None
-                    prendsPose(objet, poseActuelle)
-                else:
-                    prendsPose(objet, nouvellePose)
+        if objet['animé']:
+            if estVisible(objet):
+                if estEnAnimation(objet):
+                    animationActuelle = objet['animationActuelle']
+                    poseActuelle = mouvementActuel(animationActuelle)
+                    anime(animationActuelle)
+                    nouvellePose = mouvementActuel(animationActuelle)
+                    if nouvellePose == None:
+                        objet['animationActuelle'] = None
+                        prendsPose(objet, poseActuelle)
+                    else:
+                        prendsPose(objet, nouvellePose)
 
-            dessine(objet, ecran)
+        dessine(objet, ecran)
 
 
 def affiche_marquoir(score):
@@ -374,15 +436,17 @@ def affiche_marquoir(score):
     fenetre.blit(nombre_aliens_vertical, (FENETRE_LARGEUR // 15 * 5, FENETRE_HAUTEUR - 25))
 
 
-def affiche_sante(sante):
+def affiche_sante(sante, shield):
     left = (FENETRE_LARGEUR // 15) * 12
-    top = FENETRE_HAUTEUR - space_font.size("SCORE : {}".format(score))[1]
-    width, height = (FENETRE_LARGEUR // 15) * 2, 20
+    top = FENETRE_HAUTEUR - 20
+    width, height = (FENETRE_LARGEUR // 15) * 2, 15
 
-    barre = pygame.Rect(left, top, width, height)
+    barre = pygame.Rect(left, top - height, width, 2 * height)
     pygame.draw.rect(fenetre, GRIS_CLAIR, barre)
     barre_sante = pygame.Rect(left, top, width * (sante / SANTE_DEPART), height)
     pygame.draw.rect(fenetre, ROUGE, barre_sante)
+    barre_shield = pygame.Rect(left, top - height, width * (shield / 100), height)
+    pygame.draw.rect(fenetre, BLEU, barre_shield)
 
 
 ## Background
@@ -395,7 +459,6 @@ def affiche_background():
     fenetre.blit(backgrounds['{}'.format(backgrounds['dernier_background'])], (0, 0))
 
 
-
 def init_vague():
     for x in range(int(NBR_ALIENS_VERTICAL)):
         for i in range(NBR_ALIENS_HORIZONTAL):
@@ -406,22 +469,16 @@ def init_vague():
 
             ajoutePose(alien, 'ALIEN_DOWN', alien_down_image)
             ajoutePose(alien, 'ALIEN_UP', alien_up_image)
+            prendsPose(alien, 'ALIEN_DOWN')
             ajouteAnimation(alien, 'deplacement', animation)
             commenceAnimation(alien, 'deplacement', 0)
             ajouteEntite(aliens, alien)
 
 
 def jeu():
-    if pygame.key.get_repeat() != (200, 25):
-        pygame.key.set_repeat(200, 25)
-    global tir_auto
-    global NBR_ALIENS_VERTICAL
-    global game_over
-    global sante
-    global barre_limite_couleur
-    global delai_barre_limite
-    global aliens_warning
-    global VITESSE_ALIEN
+    global tir_auto, NBR_ALIENS_VERTICAL, game_over, sante, shield, barre_limite_couleur, delai_barre_limite, aliens_warning, VITESSE_ALIEN
+    # MUSIQUE
+    joue_musique('JEU')
     if not acteurs(aliens):
         NBR_ALIENS_VERTICAL += 0.4
         VITESSE_ALIEN += 2.5
@@ -445,26 +502,70 @@ def jeu():
     pygame.draw.rect(fenetre, BLANC, border_right)
 
     affiche_marquoir(score)
-    affiche_sante(sante)
+    affiche_sante(sante, shield)
     anime(animation)
     dessine(canon, fenetre)
-    if sante < 0:
+    if sante <= 0:
         game_over = True
+        if random.randrange(400) == 0:
+            joue_musique('STOP')
+            joue_musique('GAME OVER')
     if tir_auto:
         nouveauTirJoueur(tirs_joueur, canon, CANON_LARGEUR // 2)
     if acteurs(aliens):
         miseAJour(tirs_joueur)
         miseAJour(tirs_alien)
+        miseAJour(powerups)
         gestion_direction_aliens(aliens)
         miseAJour(aliens)
         tir_aleatoire_aliens(aliens)
+        power_up_aleatoire(aliens)
         detecte_touche_aliens(tirs_joueur, aliens)
         detecte_touche_canon(tirs_alien, canon)
+        detecte_touche_powerups(powerups, canon)
         enScene(tirs_joueur)
         enScene(tirs_alien)
         affiche(acteurs(aliens), fenetre)
+        affiche(acteurs(powerups), fenetre)
 
     temps.tick(60)
+
+
+def joue_musique(type):
+    global musique
+    if type == 'JEU':
+        if not musique.get_busy():
+            aleatoire = random.randrange(32)
+            chemin = "assets/musics/game/bgm_{}.ogg".format(aleatoire)
+            a = pygame.mixer.Sound(chemin)
+            musique.play(a, loops=1)
+    elif type == 'GAME OVER':
+        if musique.get_busy():
+            musique.stop()
+        a = pygame.mixer.Sound("assets/musics/avengers.wav")
+        musique.play(a)
+    elif type == 'STOP':
+        musique.fadeout(3000)
+    else:
+        raise Exception('else atteint dans def joue_musique(), {} reçu'.format(type))
+
+
+def joue_son(type):
+    global son
+    if type == 'POWERUP':
+        effect = pygame.mixer.Sound('assets/sounds/powerup.wav')
+        son.play(effect)
+        print("pass")
+    elif type == 'TIR':
+        son.stop()
+        effect = pygame.mixer.Sound('assets/sounds/tir.wav')
+        son.play(effect)
+    elif type == 'TIR ALIEN':
+        son.stop()
+        effect = pygame.mixer.Sound('assets/sounds/tir_alien.ogg')
+        son.play(effect)
+    else:
+        raise Exception('else atteint dans def joue_musique(), {} reçu'.format(type))
 
 
 def pause():
@@ -564,6 +665,7 @@ def menu():
     decor_menu(position_titre_principal)
     temps.tick(5)
 
+
 # Gestionnaire de répétition automatique de plusieurs touches
 # !!! NE PAS UTILISER pygame.key.set_repeat() dans votre programme !!!
 # ===== début GestionClavier =====
@@ -575,8 +677,10 @@ def _nouveauEtatTouche():
         'suivant': 0
     }
 
+
 def nouvelleGestionClavier():
     return {}
+
 
 # gc: gestionnaire de clavier (créé par nouvelleGestion Clavier())
 # touche: numéro de la touche (ex: pygame.K_e)
@@ -604,7 +708,7 @@ def scan(gc):
             if gc[touche]['actif']:
                 if maintenant >= gc[touche]['suivant']:
                     gc[touche]['suivant'] = gc[touche]['periode'] + maintenant
-                    pygame.event.post(pygame.event.Event(pygame.KEYPRESSED, {'key':touche}))
+                    pygame.event.post(pygame.event.Event(pygame.KEYPRESSED, {'key': touche}))
             else:
                 gc[touche]['actif'] = True
                 gc[touche]['suivant'] = gc[touche]['delai'] + maintenant
@@ -628,14 +732,14 @@ def traite_entrees():
         if evenement.type == pygame.QUIT:
             fini = True
         elif evenement.type == pygame.KEYDOWN:
-            if en_pause and en_jeu:
-                if evenement.key == pygame.K_ESCAPE:
+            if en_pause:
+                if evenement.key:
                     en_pause = not en_pause
             elif en_jeu and not en_pause:
                 if evenement.key == pygame.K_a:
                     tir_auto = not tir_auto
                 elif evenement.key == pygame.K_ESCAPE:
-                    en_pause = not en_pause
+                    en_pause = True
                 elif evenement.key == pygame.K_SPACE:
                     nouveauTirJoueur(tirs_joueur, canon, CANON_LARGEUR // 2)
             else:
@@ -649,30 +753,37 @@ def traite_entrees():
                 NBR_ALIENS_VERTICAL = 0
                 for alien in acteurs(aliens):
                     enleveEntite(aliens, alien)
+                for tir in acteurs(tirs_alien):
+                    enleveEntite(tirs_alien, tir)
+                for tir in acteurs(tirs_joueur):
+                    enleveEntite(tirs_joueur, tir)
+
         elif evenement.type == pygame.KEYPRESSED:
             if en_jeu:
                 if evenement.key == pygame.K_LEFT:
-                    deplacer_canon(-CANON_DEPLACEMENT)
+                    deplacer_canon(-canon_deplacement)
                 elif evenement.key == pygame.K_RIGHT:
-                    deplacer_canon(CANON_DEPLACEMENT)
+                    deplacer_canon(canon_deplacement)
                 elif evenement.key == pygame.K_SPACE:
                     nouveauTirJoueur(tirs_joueur, canon, CANON_LARGEUR // 2)
 
 
 pygame.init()
 random.seed()
-
+pygame.mixer.init()
+musique = pygame.mixer.Channel(1)
+son = pygame.mixer.Channel(2)
 # INITIALISATION CLAVIER
 gc = nouvelleGestionClavier()
 repeteTouche(gc, pygame.K_SPACE, 100, 25)
 repeteTouche(gc, pygame.K_RIGHT, 100, 25)
 repeteTouche(gc, pygame.K_LEFT, 100, 25)
 
-
 # INITIALISATION DES VARIABLES GLOBALES
 chrono = 0
 score = 0
 sante = SANTE_DEPART
+shield = 0
 dernier_tir_aliens = 0
 game_over = False
 en_jeu = False
@@ -683,6 +794,7 @@ montre_commandes = False
 barre_limite_couleur = BLANC
 delai_barre_limite = 0
 aliens_warning = False
+dernier_power_up = 0
 
 # CREATION FENETRE
 fenetre_taille = (FENETRE_LARGEUR, FENETRE_HAUTEUR)
@@ -722,7 +834,20 @@ for nom_image, nom_fichier, LARGEUR, HAUTEUR in (
     image = pygame.image.load(chemin).convert_alpha(fenetre)
     image = pygame.transform.scale(image, (LARGEUR, HAUTEUR))
     touches[nom_image] = image
-
+# INITIALISATION DES IMAGES, utilisation : touches['powerup']
+powerups_images = {
+    'liste': [],
+}
+for nom_image, nom_fichier, LARGEUR, HAUTEUR in (
+        ('VIE', 'powerup_vie.png', 32, 32),
+        ('SHIELD', 'powerup_shield.png', 32, 32),
+        ('BOOST_VITESSE', 'powerup_boost.png', 32, 32)
+):
+    chemin = 'assets/powerups/' + nom_fichier
+    image = pygame.image.load(chemin).convert_alpha(fenetre)
+    image = pygame.transform.scale(image, (LARGEUR, HAUTEUR))
+    powerups_images[nom_image] = image
+    powerups_images['liste'].append(nom_image)
 # CANON
 canon_image = pygame.image.load('assets/laser_canon.webp').convert_alpha(fenetre)
 canon_image = pygame.transform.scale(canon_image, (CANON_LARGEUR, CANON_HAUTEUR))
@@ -732,6 +857,7 @@ canon['image'] = canon_image
 # SCENES DE TIRS
 tirs_joueur = nouvelleScene()
 tirs_alien = nouvelleScene()
+powerups = nouvelleScene()
 
 # ZONE DE JEU
 border_left = pygame.Rect(0, 0, 32, FENETRE_HAUTEUR)
