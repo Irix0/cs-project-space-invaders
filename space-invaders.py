@@ -1,4 +1,6 @@
-# ROBERT Louan
+# PROJET PPI INFO2056 ULIEGE
+# TO DO :
+# POWERUPS
 
 import random
 import math
@@ -110,9 +112,11 @@ def detecte_touche_aliens(tirs_joueur, aliens):
 
 
 def detecte_touche_canon(tirs_aliens, canon):
-    """Dection de collision tirs_aliens / canon"""
-    global chrono, score, sante, shield
-    for tir in acteurs(tirs_aliens):
+    global chrono
+    global score
+    global sante
+    global shield
+    for tir in acteurs(tirs_alien):
         if rectangle(canon).colliderect(tir['rect']) == 1:
             chrono += 1
             if chrono > 20:
@@ -248,10 +252,9 @@ def power_up_aleatoire(aliens):
     if dernier_power_up < maintenant - random.randrange(INTERVALLE_POWERUP, 40000):
         if acteurs(aliens):
             alien_aleatoire = random.choice(acteurs(aliens))
-            powerup = nouveauPowerup([alien_aleatoire['position'][0], alien_aleatoire['position'][1]],
-                                     [0, -VITESSE_BALLE])
-            ajouteEntite(powerups, powerup)
-            dernier_power_up = maintenant
+        powerup = nouveauPowerup([alien_aleatoire['position'][0], alien_aleatoire['position'][1]], [0, -VITESSE_BALLE])
+        ajouteEntite(powerups, powerup)
+        dernier_power_up = maintenant
 
 
 ## AFFICHAGE
@@ -306,10 +309,6 @@ def affiche_background():
 
 
 def init_vague():
-    global NBR_ALIENS_VERTICAL
-    """Initialise les aliens selon la vague"""
-    if NBR_ALIENS_VERTICAL < 7:
-        NBR_ALIENS_VERTICAL = int(math.sqrt(2 * vague))
     for x in range(int(NBR_ALIENS_VERTICAL)):
         for i in range(NBR_ALIENS_HORIZONTAL):
             alien = nouvelleEntite('alien', [32 + i * DISTANCE_ALIEN_HORIZONTAL, x * DISTANCE_ALIEN_VERTICAL])
@@ -326,8 +325,7 @@ def init_vague():
 
 
 def jeu():
-    """Gestion du jeu"""
-    global tir_auto, NBR_ALIENS_VERTICAL, vague, game_over, sante, shield, barre_limite_couleur, delai_barre_limite, aliens_warning, VITESSE_ALIEN
+    global tir_auto, NBR_ALIENS_VERTICAL, game_over, sante, shield, barre_limite_couleur, delai_barre_limite, aliens_warning, VITESSE_ALIEN
     # MUSIQUE
     if not acteurs(aliens):
         vague += 1
@@ -402,9 +400,12 @@ def joue_musique(type):
 
 
 def joue_son(type):
-    """Joue un son"""
-    global son, son2
-    if type == 'TIR':
+    global son
+    if type == 'POWERUP':
+        effect = pygame.mixer.Sound('assets/sounds/powerup.wav')
+        son.play(effect)
+        print("pass")
+    elif type == 'TIR':
         son.stop()
         son.play(effects['tir'])
     elif type == 'TIR ALIEN':
@@ -519,7 +520,13 @@ def menu():
 
 # TRAITEMENT ENTREES
 def traite_entrees():
-    global fini, en_jeu, en_pause, tir_auto, game_over, NBR_ALIENS_VERTICAL, montre_commandes, sante, shield, musique_switch
+    global fini
+    global en_jeu
+    global en_pause
+    global tir_auto
+    global game_over
+    global NBR_ALIENS_VERTICAL
+    global montre_commandes
     for evenement in pygame.event.get():
         if evenement.type == pygame.QUIT:
             fini = True
