@@ -15,14 +15,14 @@ ROUGE = (255, 0, 0)
 VERT = 35, 204, 1, 255
 BLEU = 32, 122, 217
 
-SANTE_DEPART = 100
+SANTE_DEPART = 100 #hp
 
 FENETRE_LARGEUR = 800  # px
 FENETRE_HAUTEUR = 600  # px
 
 CANON_LARGEUR = 64  # px
 CANON_HAUTEUR = 64  # px
-CANON_Y = FENETRE_HAUTEUR * 0.85
+CANON_Y = 510
 canon_deplacement = 5  # px
 
 ALIEN_LARGEUR = 64  # px
@@ -37,7 +37,7 @@ DISTANCE_ALIEN_VERTICAL = ALIEN_HAUTEUR
 HAUTEUR_BALLE = 8  # px
 LARGEUR_BALLE = 3  # px
 VITESSE_BALLE = -80  # VITESSE VERTICALE
-INTERVALLE_TIR_JOUEUR = 50  # ms | interval entre chaque tir
+INTERVALLE_TIR_JOUEUR = 1000  # ms | interval entre chaque tir
 INTERVALLE_TIR_ALIEN = 600  # ms
 INTERVALLE_POWERUP = 8000
 
@@ -117,8 +117,11 @@ def detecte_touche_canon(tirs_aliens, canon):
             chrono += 1
             if chrono > 20:
                 enleveEntite(tirs_alien, tir)
-                if shield > 5:
+                if shield > 0:
                     shield -= 7.5
+                    if shield < 0:
+                        sante += shield
+                        shield = 0
                 else:
                     sante -= 5
                 score -= 50
@@ -326,8 +329,7 @@ def init_vague():
 
 
 def jeu():
-    """Gestion du jeu"""
-    global tir_auto, NBR_ALIENS_VERTICAL, vague, game_over, sante, shield, barre_limite_couleur, delai_barre_limite, aliens_warning, VITESSE_ALIEN
+    global tir_auto, NBR_ALIENS_VERTICAL, game_over, sante, shield, barre_limite_couleur, delai_barre_limite, aliens_warning, VITESSE_ALIEN, vague
     # MUSIQUE
     if not acteurs(aliens):
         vague += 1
@@ -483,16 +485,16 @@ def montre_commandes_menu():
     # ESPACE
     fenetre.blit(touches['espace'], ((FENETRE_LARGEUR // 10) * 1.5, (FENETRE_HAUTEUR // 10) * 4))
     tir = space_font.render("tir", True, NOIR)
-    fenetre.blit(tir, ((FENETRE_LARGEUR // 10) * 3, (FENETRE_HAUTEUR // 10) * 4 + 25))
+    fenetre.blit(tir, ((FENETRE_LARGEUR // 10) * 4, (FENETRE_HAUTEUR // 10) * 4 + 25))
     # FLECHES
     fenetre.blit(touches['fleche_gauche'], ((FENETRE_LARGEUR // 10) * 1.5, (FENETRE_HAUTEUR // 10) * 5.5))
     fenetre.blit(touches['fleche_droite'], ((FENETRE_LARGEUR // 10) * 2.2, (FENETRE_HAUTEUR // 10) * 5.5))
     deplacement = space_font.render("deplacement", True, NOIR)
-    fenetre.blit(deplacement, ((FENETRE_LARGEUR // 10) * 3, (FENETRE_HAUTEUR // 10) * 5.5 + 25))
+    fenetre.blit(deplacement, ((FENETRE_LARGEUR // 10) * 4, (FENETRE_HAUTEUR // 10) * 5.5 + 25))
     # A
     fenetre.blit(touches['a'], ((FENETRE_LARGEUR // 10) * 1.5, (FENETRE_HAUTEUR // 10) * 7))
     tir_auto = space_font.render("tir automatique", True, NOIR)
-    fenetre.blit(tir_auto, ((FENETRE_LARGEUR // 10) * 3, (FENETRE_HAUTEUR // 10) * 7 + 25))
+    fenetre.blit(tir_auto, ((FENETRE_LARGEUR // 10) * 4, (FENETRE_HAUTEUR // 10) * 7 + 25))
     temps.tick(5)
 
 
@@ -519,7 +521,7 @@ def menu():
 
 # TRAITEMENT ENTREES
 def traite_entrees():
-    global fini, en_jeu, en_pause, tir_auto, game_over, NBR_ALIENS_VERTICAL, montre_commandes, sante, shield, musique_switch
+    global fini, en_jeu, en_pause, tir_auto, game_over, NBR_ALIENS_VERTICAL, montre_commandes, sante, shield, musique_switch, vague
     for evenement in pygame.event.get():
         if evenement.type == pygame.QUIT:
             fini = True
@@ -556,6 +558,7 @@ def traite_entrees():
                 joue_musique('STOP')
                 sante = 100
                 shield = 0
+                vague = 0
         elif evenement.type == pygame.KEYPRESSED:
             if en_jeu:
                 if evenement.key == pygame.K_LEFT:
